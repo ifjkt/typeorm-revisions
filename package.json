@@ -1,6 +1,6 @@
 {
   "name": "@ifjkt/typeorm-revisions",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Revisions History for [TypeORM](https://typeorm.io) Entities ",
   "repository": {
     "type": "git",
@@ -16,7 +16,7 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "rimraf dist && tsc -p tsconfig.build.json ",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "format": "prettier --write \\\"src/**/*.ts\\\" \\\"src/test/**/*.ts\\\"",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "prepare": "npm run build",
     "prepublishOnly": "npm test && npm run lint",
