@@ -1,6 +1,6 @@
 {
   "name": "@ifjkt/typeorm-revisions",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Revisions History for [TypeORM](https://typeorm.io) Entities ",
   "repository": {
     "type": "git",
