@@ -12,7 +12,7 @@ Tested: MySQL 8, MariaDB and Postgres
 ## Installation
 
 ```bash
-$ npm i --save typeorm typeorm-revisions
+$ npm i --save typeorm @ifjkt/typeorm-revisions
 ```
 
 ## Quick Start
