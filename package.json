@@ -35,7 +35,7 @@
     "typeorm",
     "history",
     "revisions",
-    "history",
+    "audit",
     "typescript",
     "entity",
     "subscriber"
