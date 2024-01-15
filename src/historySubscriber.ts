@@ -85,7 +85,7 @@ export abstract class HistorySubscriber<Entity extends BaseEntity, HistoryEntity
     metadata.primaryColumns.forEach((column) => {
       const dbEntity: any = entity;
       history[history['auditRecordIdProperty']] = dbEntity ? dbEntity[column.propertyName] : 0;
-      history[column.propertyName] = null;
+      history[column.propertyName] = undefined;
     });
 
     return history;
