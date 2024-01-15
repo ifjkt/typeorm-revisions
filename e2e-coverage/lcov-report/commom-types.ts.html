@@ -135,7 +135,7 @@ export enum HistoryType {
 }
 &nbsp;
 // tslint:disable-next-line: ban-types
-export function HistoryActionColumn(): Function {
+export function HistoryActionTypeColumn(): Function {
   return Column({
     default: HistoryType.CREATED,
     enum: Object.values(HistoryType),

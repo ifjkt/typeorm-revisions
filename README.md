@@ -1,13 +1,13 @@
-# typeorm-revisions
+# @ifjkt/typeorm-revisions
 
-![npm](https://img.shields.io/npm/v/typeorm-revisions.svg)
-![NPM](https://img.shields.io/npm/l/typeorm-revisions.svg)
+![npm](https://img.shields.io/npm/v/@ifjkt/typeorm-revisions.svg)
+![NPM](https://img.shields.io/npm/l/@ifjkt/typeorm-revisions.svg)
 
 ## Description
 
 Provides a Revision History Subscriber for [TypeORM](http://typeorm.io) Entities
 
-Tested: sqlite, mysql5, mysql8 and postgres.
+Tested: MySQL 8, MariaDB and Postgres
 
 ## Installation
 
@@ -24,89 +24,79 @@ $ npm i --save typeorm typeorm-revisions
 class MyModel extends BaseEntity {
   @PrimaryGeneratedColumn()
   public id!: number;
+  
   @Column()
   public name!: string;
+  
   @Column()
   public email!: string;
 }
 ```
 
-### 2. Create an Entity to mantain a Revision History 
+### 2. Create an Entity for your Audit table
 
 ```ts
 @Entity()
 class MyModelHistory extends MyModel implements HistoryEntityInterface {
-  @Column()
-  public originalID!: number;
-  @HistoryActionColumn()
-  public action!: HistoryActionType;
+  @Column({
+    name: 'record_id',
+    type: 'int',
+  })
+  recordId: number;
+
+  @Column({
+    name: 'revision_timestamp',
+  })
+  revisionTime: Date;
+
+  @Column({
+    name: 'revision_type',
+  })
+  revisionType: RevisionActionType;
 }
 ```
 
-### 3. Create a Entity Subscriber for monitor your Entity and persist a Revison History
+### 3. Annotate your Audit table with the @AuditTable decorator and specify your audit fields
+
+```ts
+@Entity()
+@AuditTable({
+  recordIdProperty: 'recordId',
+  revisionTypeProperty: 'revisionType',
+  revisionTimestampProperty: 'revisionTime',
+})
+class MyModelHistory extends MyModel implements HistoryEntityInterface {
+  @Column({
+    name: 'record_id',
+    type: 'int',
+  })
+  recordId: number;
+
+  @Column({
+    name: 'revision_timestamp',
+  })
+  revisionTime: Date;
+
+  @Column({
+    name: 'revision_type',
+  })
+  revisionType: RevisionActionType;
+}
+```
+
+### 4. Create an Entity Subscriber for your entity to process Audit events
 
 ```ts
 @EventSubscriber()
 class MyModelHistorySubscriber extends HistorySubscriber<MyModel, MyModelHistory> {
-  public get entity() {
-    return MyModel;
-  }
-  public get historyEntity() {
-    return MyModelHistory;
-  }
-}
-```
-
-### 4. Create connection
-
-```ts
-await createConnection({
-  type: "sqlite",
-  entities: [MyModel, MyModelHistory],
-  subscribers: [MyModelHistorySubscriber],
-  database: "db.sql",
-});
-```
-
-### 5. Insert/Update/Remove entity
-
-```ts
-// Insert
-const testEntity = await MyModel.create({ test: "test" }).save();
-
-// Update
-testEntity.test = "updated";
-await testEntity.save();
-
-// Remove
-await testEntity.remove();
-```
-
-## Advanced
-
-You can hook before/after insert/update/remove history.
-
-```ts
-@EventSubscriber()
-class MyModelHistorySubscriber extends HistorySubscriber<MyModel, MyModelHistory> {
-  public get entity() {
-    return MyModel;
-  }
-
-  public get historyEntity() {
-    return MyModelHistory;
-  }
-
-  public beforeHistory(action: HistoryActionType, history: MyModelHistory): void | Promise<void> {
-      
-  }
-
-  public beforeHistory(action: HistoryActionType, history: MyModelHistory): void | Promise<void> {
-
-  }
+  public entity = MyModel;
+  public historyEntity = MyModelHistory;
 }
 ```
 
 ## License
 
 [MIT](LICENSE)
+
+
+Forked from https://github.com/ephillipe/typeorm-revisions

@@ -1,61 +1,93 @@
-import { Column, EntityManager, EntityMetadata, InsertEvent, RemoveEvent, UpdateEvent } from 'typeorm';
-import { HistoryActionType } from './historyActionType';
-import { HistoryEntityInterface } from './historyEntityInterface';
-import { HistoryEvent } from './historyEvent';
-import { HistorySubscriberInterface } from './historySubscriberInterface';
+import {
+  BaseEntity,
+  EntityManager,
+  EntityMetadata,
+  EntitySubscriberInterface,
+  InsertEvent,
+  InsertResult,
+  ObjectLiteral,
+  RemoveEvent,
+  UpdateEvent,
+} from 'typeorm';
+import 'reflect-metadata';
+import { RevisionActionType } from './constants/revisionActionType';
 
-export abstract class HistorySubscriber<Entity, HistoryEntity extends HistoryEntityInterface & Entity>
-  implements HistorySubscriberInterface<Entity, HistoryEntity> {
-  // tslint:disable-next-line: no-empty
-  public beforeHistory(action: HistoryActionType, history: HistoryEntity): void | Promise<void> {}
-  // tslint:disable-next-line: no-empty
-  public afterHistory(action: HistoryActionType, history: HistoryEntity): void | Promise<void> {}
+export abstract class HistorySubscriber<Entity extends BaseEntity, HistoryEntity extends Entity>
+  implements EntitySubscriberInterface<Entity>
+{
+  public abstract get entity(): any;
+  public abstract get historyEntity(): any;
 
-  // tslint:disable-next-line: ban-types
-  public abstract get entity(): Function;
-  // tslint:disable-next-line: ban-types
-  public abstract get historyEntity(): Function;
-
-  // tslint:disable-next-line: ban-types
-  public listenTo(): Function {
+  public listenTo() {
     return this.entity;
   }
-  public createHistoryEntity(manager: Readonly<EntityManager>, entity: Entity): HistoryEntity | Promise<HistoryEntity> {
-    return manager.create(this.historyEntity, entity);
-  }
 
-  public async afterInsert(event: InsertEvent<Entity>): Promise<void> {
-    await this.createHistory(event.manager, event.metadata, HistoryActionType.CREATED, event.entity);
-  }
+  async afterInsert(event: InsertEvent<Entity>): Promise<InsertResult | void> {
+    const historyRepo = event.manager.getRepository(this.historyEntity);
+    const history: any = historyRepo.create(event.entity);
+    history[history['auditRevisionTypeProperty']] = RevisionActionType.CREATED;
+    history[history['auditRevisionTimestampProperty']] = new Date();
+    history[history['auditRecordIdProperty']] = event.entityId;
 
-  public async afterUpdate(event: UpdateEvent<Entity>): Promise<void> {
-    await this.createHistory(event.manager, event.metadata, HistoryActionType.UPDATED, event.entity);
-  }
-
-  public async beforeRemove(event: RemoveEvent<Entity>): Promise<void> {
-    await this.createHistory(event.manager, event.metadata, HistoryActionType.DELETED, event.entity);
-  }
-
-  private async createHistory(
-    manager: Readonly<EntityManager>,
-    metadata: Readonly<EntityMetadata>,
-    action: Readonly<HistoryActionType>,
-    entity?: Entity,
-  ): Promise<void> {
-    if (!entity || Object.keys(metadata.propertiesMap).includes('action')) {
-      return;
+    if (history[history['auditRecordIdProperty']]) {
+      await historyRepo.insert(history);
     }
+  }
 
-    const history = await this.createHistoryEntity(manager, entity);
-    history.action = action;
+  async afterUpdate(event: UpdateEvent<Entity>): Promise<InsertResult | void> {
+    if (event.entity) {
+      let history = this.createAuditEntity(event.manager, event.entity);
+      history = this.setAuditFields(event.metadata, history, event.databaseEntity, RevisionActionType.UPDATED);
 
-    for (const primaryColumn of metadata.primaryColumns) {
-      history.originalID = Reflect.get(history, primaryColumn.propertyName);
-      Reflect.deleteProperty(history, primaryColumn.propertyName);
+      if (history[history['auditRecordIdProperty']]) {
+        return event.manager.insert(this.historyEntity, history);
+      }
     }
+  }
 
-    await this.beforeHistory(history.action, history);
-    await manager.save(history);
-    await this.afterHistory(history.action, history);
+  async afterRemove(event: RemoveEvent<Entity>): Promise<any> {
+    if (event.entity) {
+      let history = this.createAuditEntity(event.manager, event.entity);
+      history = this.setAuditFields(event.metadata, history, event.databaseEntity, RevisionActionType.DELETED);
+
+      if (history[history['auditRecordIdProperty']]) {
+        return event.manager.insert(this.historyEntity, history);
+      }
+    }
+  }
+
+  async afterSoftRemove(event: RemoveEvent<Entity>): Promise<any> {
+    if (event.entity) {
+      let history = this.createAuditEntity(event.manager, event.entity);
+      history = this.setAuditFields(event.metadata, history, event.databaseEntity, RevisionActionType.DELETED);
+
+      if (history[history['auditRecordIdProperty']]) {
+        return event.manager.insert(this.historyEntity, history);
+      }
+    }
+  }
+
+  private createAuditEntity(entityManager: EntityManager, data: ObjectLiteral | Entity): ObjectLiteral {
+    return entityManager.create(this.historyEntity, {
+      ...data,
+    });
+  }
+
+  private setAuditFields(
+    metadata: EntityMetadata,
+    history: HistoryEntity | any,
+    entity: Entity,
+    revisionActionType: RevisionActionType,
+  ) {
+    history[history['auditRevisionTypeProperty']] = revisionActionType;
+    history[history['auditRevisionTimestampProperty']] = new Date();
+
+    metadata.primaryColumns.forEach((column) => {
+      const dbEntity: any = entity;
+      history[history['auditRecordIdProperty']] = dbEntity ? dbEntity[column.propertyName] : 0;
+      history[column.propertyName] = null;
+    });
+
+    return history;
   }
 }
